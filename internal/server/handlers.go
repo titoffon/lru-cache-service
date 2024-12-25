@@ -27,6 +27,7 @@ type responseBody struct {
 	ExpiresAt int64       `json:"expires_at"`
 }
 
+// handlePost обрабатывает POST /api/lru — добавление данных в кэш.
 func (s *Server) handlePost(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 
@@ -81,6 +82,7 @@ func (s *Server) handlePost(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated) // 201
 }
 
+// handleGet обрабатывает GET /api/lru/{key} — получение данных по ключу.
 func (s *Server) handleGet(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 
@@ -125,6 +127,7 @@ func (s *Server) handleGet(w http.ResponseWriter, r *http.Request) {
 	)
 }
 
+// handleGetAll обрабатывает GET /api/lru — получение всего кэша.
 func (s *Server) handleGetAll(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 
@@ -159,6 +162,7 @@ func (s *Server) handleGetAll(w http.ResponseWriter, r *http.Request) {
 	)
 }
 
+// handleDelete обрабатывает DELETE /api/lru/{key} — удаление данных по ключу.
 func (s *Server) handleDelete(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 
@@ -193,6 +197,7 @@ func (s *Server) handleDelete(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// handleDeleteAll обрабатывает DELETE /api/lru — полная очистка кэша.
 func (s *Server) handleDeleteAll(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 
@@ -207,6 +212,6 @@ func (s *Server) handleDeleteAll(w http.ResponseWriter, r *http.Request) {
 	slog.Info("All data evicted successfully",
 		slog.Duration("duration", time.Since(start)),
 	)
-	
+
 	w.WriteHeader(http.StatusNoContent)
 }

@@ -15,7 +15,7 @@ type config struct {
   	ServerHostPort  string        `env:"SERVER_HOST_PORT" envDefault:"localhost:8080"`
 	CacheSize       int           `env:"CACHE_SIZE" envDefault:"10"`
 	DefaultCacheTTL time.Duration `env:"DEFAULT_CACHE_TTL" envDefault:"60s"`
-	LogLevel        string        `env:"LOG_LEVEL" envDefault:"DEBUG"`
+	LogLevel        string        `env:"LOG_LEVEL" envDefault:"WARN"`
 }
 
 func main(){

@@ -1,3 +1,4 @@
+// Package cache предоставляет реализацию LRU-кэша с поддержкой TTL
 package cache
 
 import (
@@ -7,43 +8,55 @@ import (
 	"time"
 )
 
-/*Идея для доработки реализовать фоновую очистку кэша с просроченными TTL
-минусы - при большом объёме кэша из за того, что придётся лочить приведёт к потере производительности
-Либо же добавить комбинацию мин-куча + «очистка при доступе»*/
+/*
+ILRUCache описывает интерфейс LRU-кэша. Он поддерживает только строковые ключи и простые типы данных в значениях.
 
-// ILRUCache интерфейс LRU-кэша. Поддерживает только строковые ключи. Поддерживает только простые типы данных в значениях.
+Все методы интерфейса являются потокобезопасными.
+*/
 type ILRUCache interface {
-	// Put запись данных в кэш
+	// Put добавляет или обновляет запись в кэше с заданным TTL.
+	// Если TTL <= 0, используется значение c.defaultTTL.
+	// При переполнении кэша (количество элементов >= capacity) удаляется LRU-элемент.
 	Put(ctx context.Context, key string, value interface{}, ttl time.Duration) error
-    // Get получение данных из кэша по ключу
+
+    // Get возвращает данные из кэша по ключу.
+	// Если данные не найдены или их TTL истёк, возвращается ErrKeyNotFound.
 	Get(ctx context.Context, key string) (value interface{}, expiresAt time.Time, err error)
-    // GetAll получение всего наполнения кэша в виде двух слайсов: слайса ключей и слайса значений. Пары ключ-значения из кэша располагаются на соответствующих позициях в слайсах.
+
+    // GetAll получение всего наполнения кэша в виде двух слайсов: слайса ключей и слайса значений.
+	// Пары ключ-значения из кэша располагаются на соответствующих позициях в слайсах.
 	GetAll(ctx context.Context) (keys []string, values []interface{}, err error)
-    // Evict ручное удаление данных по ключу
+   
+	// Evict ручное удаление данных по ключу
+	// Если ключ не найден — возвращает ErrKeyNotFound.
     Evict(ctx context.Context, key string) (value interface{}, err error)
+
     // EvictAll ручная инвалидация всего кэша
 	EvictAll(ctx context.Context) error
 }
 
+// ErrKeyNotFound сигнализирует о том, что ключ не существует.
 var (
 	ErrKeyNotFound = errors.New("key not found")
 )
 
-//в item будет храниться значения элемента кэша
+// item хранит данные записи кэша.
 type item struct {
 	key       string
 	value     interface{}
 	expiresAt time.Time
 }
 
-//двусвязный список для реализации удаления из середины очереди за О(1)
+// ListNode представляет узел двусвязного списка, используемого
+// для управления порядком "least recently used".
 type ListNode struct{
 	data *item
 	prev *ListNode
 	next *ListNode
 }
 
-//реализация кэша
+// LRUCache реализует интерфейс ILRUCache,
+// используя двусвязный список + map для O(1)-доступа к элементам.
 type LRUCache struct {
 	mu			sync.RWMutex
     capacity 	int
@@ -53,6 +66,8 @@ type LRUCache struct {
     right 		*ListNode // Most Recently Used
 }
 
+// NewLRUCache создаёт новый LRUCache с заданной ёмкостью (capacity)
+// и временем жизни по умолчанию (defaultTTL).
 func NewLRUCache(capacity int, defaultTTL time.Duration) ILRUCache {
     return &LRUCache{
         capacity: capacity,
@@ -61,6 +76,7 @@ func NewLRUCache(capacity int, defaultTTL time.Duration) ILRUCache {
 	}
 }
 
+// Put добавляет или обновляет запись в кэше с указанным TTL.
 func (c *LRUCache) Put(ctx context.Context, key string, value interface{}, ttl time.Duration) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -97,6 +113,7 @@ func (c *LRUCache) Put(ctx context.Context, key string, value interface{}, ttl t
 	return nil
 }
 
+// Get возвращает значение и время истечения TTL для заданного ключа.
 func (c *LRUCache) Get(ctx context.Context, key string) (interface{}, time.Time, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -120,6 +137,7 @@ func (c *LRUCache) Get(ctx context.Context, key string) (interface{}, time.Time,
 	return node.data.value, node.data.expiresAt, nil
 }
 
+// GetAll возвращает все ключи и значения из кэша.
 func (c *LRUCache) GetAll(ctx context.Context) ([]string, []interface{}, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -146,6 +164,7 @@ func (c *LRUCache) GetAll(ctx context.Context) ([]string, []interface{}, error) 
 	return keys, values, nil
 }
 
+// Evict удаляет элемент по ключу из кэша.
 func (c *LRUCache) Evict(ctx context.Context, key string) (interface{}, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -162,6 +181,7 @@ func (c *LRUCache) Evict(ctx context.Context, key string) (interface{}, error) {
 	return val, nil
 }
 
+// EvictAll полностью очищает кэш.
 func (c *LRUCache) EvictAll(ctx context.Context) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -174,7 +194,7 @@ func (c *LRUCache) EvictAll(ctx context.Context) error {
 
 
 
-//функция для перемещения в начало очереди
+// moveToFront перемещает заданный узел в начало очереди (right).
 func (c *LRUCache) moveToFront(node *ListNode){
 	//если и так в начале очереди
 	if node == c.right {
@@ -189,6 +209,7 @@ func (c *LRUCache) moveToFront(node *ListNode){
 // 		LRU элемент           						очереди
 //(left) 1 <-> 2 <-> (next<-) 3 (->prev) <-> 4 <-> 5(right)
 
+// removeNode удаляет узел из двусвязного списка.
 func (c *LRUCache) removeNode(node *ListNode) {
 	if node.prev != nil { //проверка под вопросом
 		node.prev.next = node.next
@@ -202,6 +223,7 @@ func (c *LRUCache) removeNode(node *ListNode) {
 	}
 }
 
+// addToFront добавляет узел в начало списка (right).
 func (c *LRUCache) addToFront(node *ListNode){
 	node.prev = nil
 	node.next = c.right
@@ -216,6 +238,7 @@ func (c *LRUCache) addToFront(node *ListNode){
 	}
 }
 
+// removeLeastUsed удаляет наиболее "старый" элемент (left) из списка и map.
 func (c *LRUCache) removeLeastUsed(){
 	if c.left == nil {
 		return

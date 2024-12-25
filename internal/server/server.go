@@ -1,3 +1,4 @@
+// Package server реализует HTTP-сервер, предоставляющий API для работы с LRU-кешем.
 package server
 
 import (
@@ -9,12 +10,14 @@ import (
 	"github.com/titoffon/lru-cache-service/internal/cache"
 )
 
-//Server хранит кэш и конфиг, содержит HTTP-сервер
+// Server хранит ссылки на http.Server и реализацию кэша.
 type Server struct {
 	httpServer *http.Server
 	cache      cache.ILRUCache
 }
 
+// NewServer создаёт новый Server, регистрирует все HTTP-эндпоинты.
+// Возвращает ссылку на сконфигурированный Server.
 func NewServer(addr string, cache cache.ILRUCache) *Server {
 	r := chi.NewRouter()
 
@@ -36,6 +39,8 @@ func NewServer(addr string, cache cache.ILRUCache) *Server {
 	return s
 }
 
+// Start запускает HTTP-сервер в текущем горутине (блокирует).
+// Возвращает ошибку, если сервер не смог стартовать или завершился с ошибкой.
 func (s *Server) Start() error {
 	s.httpServer.Handler = s.loggingMiddleware(s.httpServer.Handler)
 	err := s.httpServer.ListenAndServe()
