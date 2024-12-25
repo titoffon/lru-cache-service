@@ -3,7 +3,6 @@ package server
 import (
 	"log/slog"
 	"net/http"
-	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -48,14 +47,14 @@ func (s *Server) Start() error {
 
 func (s *Server) loggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		start := time.Now()
+		//start := time.Now()
 		next.ServeHTTP(w, r)
-		duration := time.Since(start)
+		//duration := time.Since(start)
 
 		slog.Debug("Incoming request",
 			slog.String("method", r.Method),
 			slog.String("path", r.URL.Path),
-			slog.Duration("duration", duration),
+			//slog.Duration("duration", duration),
 			slog.String("remote_addr", r.RemoteAddr))
 	})
 }
