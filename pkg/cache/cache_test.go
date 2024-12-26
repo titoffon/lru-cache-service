@@ -34,7 +34,7 @@ func TestFrequentPutSameKey(t *testing.T) {
 		"TTL (expiresAt) should be at least ~2s from now")
 }
 
-func TestGet (t *testing.T) {
+func TestGet(t *testing.T) {
 	capacity := 2
 	defaultTTL := 1 * time.Second
 	c := NewLRUCache(capacity, defaultTTL)

@@ -10,17 +10,16 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/titoffon/lru-cache-service/internal/cache"
+	"github.com/titoffon/lru-cache-service/pkg/cache"
 )
 
-//тело POST-запроса
+
 type requestBody struct {
 	Key        string      `json:"key"`
 	Value      interface{} `json:"value"`
 	TTLSeconds *int64      `json:"ttl_seconds,omitempty"`
 }
 
-//тело GET-ответа
 type responseBody struct {
 	Key       string      `json:"key"`
 	Value     interface{} `json:"value"`
@@ -73,14 +72,13 @@ func (s *Server) handlePost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-		slog.Info("Data stored successfully",
+	slog.Info("Data stored successfully",
 		slog.String("key", req.Key),
 		slog.Duration("ttl", ttl),
 		slog.Duration("duration", time.Since(start)),
 	)
 
-	//time.Sleep(2*time.Second)
-	w.WriteHeader(http.StatusCreated) // 201
+	w.WriteHeader(http.StatusCreated)
 }
 
 // handleGet обрабатывает GET /api/lru/{key} — получение данных по ключу.
@@ -149,7 +147,7 @@ func (s *Server) handleGetAll(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if len(keys) == 0 {
-		// 204 - нет контента
+
 		slog.Info("No content in GET all request")
 		w.WriteHeader(http.StatusNoContent)
 		return
@@ -205,12 +203,11 @@ func (s *Server) handleDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-		slog.Info("Key deleted successfully",
+	slog.Info("Key deleted successfully",
 		slog.String("key", key),
 		slog.Duration("duration", time.Since(start)),
 	)
 
-	// 204 - успешное удаление
 	w.WriteHeader(http.StatusNoContent)
 }
 

@@ -32,7 +32,7 @@ type ILRUCache interface {
     Evict(ctx context.Context, key string) (value interface{}, err error)
 
     // EvictAll ручная инвалидация всего кэша
-	EvictAll(ctx context.Context) error
+	EvictAll(ctx context.Context) error 
 }
 
 // ErrKeyNotFound сигнализирует о том, что ключ не существует.
@@ -86,16 +86,14 @@ func (c *LRUCache) Put(ctx context.Context, key string, value interface{}, ttl t
 	}
 
 	expiresAt := time.Now().Add(ttl)
-	//обновление, если уже есть в кэше
+
 	if node, ok := c.cache[key]; ok {
 		node.data.value = value
 		node.data.expiresAt = expiresAt
-		//перемещаем в начало очереди
 		c.moveToFront(node)
 		return nil
 	}
 
-	// Если размер достиг capacity — удаляем наименее используемый элемент
 	if len(c.cache) >= c.capacity {
 		c.removeLeastUsed()
 	}
@@ -123,21 +121,19 @@ func (c *LRUCache) Get(ctx context.Context, key string) (interface{}, time.Time,
 		return nil, time.Time{}, ErrKeyNotFound
 	}
 
-	//проверяем, не истёк ли TTL
 	if time.Now().After(node.data.expiresAt) {
-		//удаляем просроченный
 		c.removeNode(node)
 		delete(c.cache, key)
 		return nil, time.Time{}, ErrKeyNotFound
 	}
 
-	//переместить в начало очереди
 	c.moveToFront(node)
 
 	return node.data.value, node.data.expiresAt, nil
 }
 
-// GetAll возвращает все ключи и значения из кэша.
+// GetAll Получение всего текущего наполнения кэша в виде двух списков: списка ключей и списка значений.
+// Пары ключ-значение располагаются на соответствующих индексах.
 func (c *LRUCache) GetAll(ctx context.Context) ([]string, []interface{}, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -149,11 +145,9 @@ func (c *LRUCache) GetAll(ctx context.Context) ([]string, []interface{}, error) 
 	keys := make([]string, 0, len(c.cache))
 	values := make([]interface{}, 0, len(c.cache))
 
-	//проход по списку для вывода от начала очереди до конца
 	current := c.right
 	for current != nil {
-		// Проверяем TTL "на лету" — если истёк, пропускаем (но удалять тут не будем,
-		// чтобы не усложнять логику и не блокировать на запись)
+
 		if time.Now().Before(current.data.expiresAt) {
 			keys = append(keys, current.data.key)
 			values = append(values, current.data.value)
@@ -196,18 +190,13 @@ func (c *LRUCache) EvictAll(ctx context.Context) error {
 
 // moveToFront перемещает заданный узел в начало очереди (right).
 func (c *LRUCache) moveToFront(node *ListNode){
-	//если и так в начале очереди
+	
 	if node == c.right {
 		return
 	}
 	c.removeNode(node)
 	c.addToFront(node)
 }
-
-// 		конец
-// 		очереди				 						начало
-// 		LRU элемент           						очереди
-//(left) 1 <-> 2 <-> (next<-) 3 (->prev) <-> 4 <-> 5(right)
 
 // removeNode удаляет узел из двусвязного списка.
 func (c *LRUCache) removeNode(node *ListNode) {

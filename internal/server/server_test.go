@@ -11,7 +11,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/assert"
-	"github.com/titoffon/lru-cache-service/internal/cache"
+	"github.com/titoffon/lru-cache-service/pkg/cache"
 )
 
 func TestHandlePost(t *testing.T) {
@@ -125,16 +125,13 @@ func TestHandleGetAll(t *testing.T) {
 	mockCache.Put(context.Background(), "key1", "value1", time.Minute)
 	mockCache.Put(context.Background(), "key2", "value2", time.Minute)
 
-
 	srv := &Server{cache: mockCache}
 
 	t.Run("Retrieve all keys and values", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/api/lru", nil)
 		rec := httptest.NewRecorder()
 
-
 		srv.handleGetAll(rec, req)
-
 
 		assert.Equal(t, http.StatusOK, rec.Code)
 		var resp struct {
@@ -150,7 +147,7 @@ func TestHandleGetAll(t *testing.T) {
 	})
 
 	t.Run("No content in cache", func(t *testing.T) {
-		
+
 		mockCache.EvictAll(context.Background())
 
 		req := httptest.NewRequest(http.MethodGet, "/api/lru", nil)
@@ -230,7 +227,7 @@ func TestHandleDeleteAll(t *testing.T) {
 
 	//убедиться, что вызов обработчика с пустым кэшем также возвращает 204
 	t.Run("Delete all when cache is empty", func(t *testing.T) {
-	
+
 		mockCache.EvictAll(context.Background())
 
 		req := httptest.NewRequest(http.MethodDelete, "/api/lru", nil)

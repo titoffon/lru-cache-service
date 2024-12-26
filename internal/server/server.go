@@ -12,7 +12,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/titoffon/lru-cache-service/internal/cache"
+	"github.com/titoffon/lru-cache-service/pkg/cache"
 )
 
 // Server хранит ссылки на http.Server и реализацию кэша.
@@ -29,14 +29,13 @@ func NewServer(addr string, cache cache.ILRUCache) *Server {
 	s := &Server{
 		cache: cache,
 		httpServer: &http.Server{
-			Addr:    			addr,
-			Handler: 			r,
-			ReadHeaderTimeout:	10 * time.Second, // например
-    		IdleTimeout:   		60 * time.Second,
+			Addr:              addr,
+			Handler:           r,
+			ReadHeaderTimeout: 10 * time.Second,
+			IdleTimeout:       60 * time.Second,
 		},
 	}
 
-	//Настраиваем роуты
 	r.Post("/api/lru", s.handlePost)
 	r.Get("/api/lru/{key}", s.handleGet)
 	r.Get("/api/lru", s.handleGetAll)
@@ -49,12 +48,11 @@ func NewServer(addr string, cache cache.ILRUCache) *Server {
 // Start запускает HTTP-сервер в текущем горутине (блокирует).
 // Возвращает ошибку, если сервер не смог стартовать или завершился с ошибкой.
 func (s *Server) Start() error {
-	//канал для приёма системных сигналов.
+
 	stop := make(chan os.Signal, 1)
-	//подписываемся на сигналы SIGINT (Ctrl+C) и SIGTERM
+
 	signal.Notify(stop, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
-	// Канал для передачи ошибок, которые могут возникнуть при ListenAndServe.
 	errChan := make(chan error, 1)
 
 	s.httpServer.Handler = s.loggingMiddleware(s.httpServer.Handler)
@@ -67,46 +65,39 @@ func (s *Server) Start() error {
 
 	select {
 	case sig := <-stop:
-		// Пришёл сигнал (SIGINT или SIGTERM)
 		slog.Info("Received shutdown signal",
 			slog.String("signal", sig.String()),
 		)
 
 		shutdownStart := time.Now()
 
-		// Создаём контекст с таймаутом
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
-		// Вызываем Shutdown — это говорит серверу не принимать новых запросов
-		// и подождать, пока все активные запросы завершатся или пока не истечёт таймаут.
 		if err := s.httpServer.Shutdown(ctx); err != nil {
 			slog.Error("Graceful shutdown failed", slog.String("error", err.Error()))
 			return err
 		}
-		// Логируем, сколько заняла остановка
+
 		shutdownElapsed := time.Since(shutdownStart)
 		slog.Info("Server gracefully stopped",
 			slog.Duration("shutdown_time", shutdownElapsed),
 		)
 		return nil
-			
+
 	case err := <-errChan:
-		// Если сервер упал не по причине Shutdown, возвращаем ошибку
+
 		return err
 	}
 }
 
 func (s *Server) loggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		//start := time.Now()
 		next.ServeHTTP(w, r)
-		//duration := time.Since(start)
 
 		slog.Debug("Incoming request",
 			slog.String("method", r.Method),
 			slog.String("path", r.URL.Path),
-			//slog.Duration("duration", duration),
 			slog.String("remote_addr", r.RemoteAddr))
 	})
 }
