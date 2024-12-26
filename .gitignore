@@ -1,0 +1,12 @@
+# User-specific files
+main.exe
+*.exe
+*.user
+coverage.out
+
+# что надо исключить 
+bin/
+bin_v1.2/
+packages/
+debug/
+.vscode/
