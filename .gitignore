@@ -2,6 +2,7 @@
 main.exe
 *.exe
 *.user
+coverage.out
 
 # что надо исключить 
 bin/

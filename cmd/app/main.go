@@ -5,7 +5,6 @@ import (
 
 	"github.com/titoffon/lru-cache-service/internal/config"
 	"github.com/titoffon/lru-cache-service/internal/server"
-	"github.com/titoffon/lru-cache-service/pkg/cache"
 	"github.com/titoffon/lru-cache-service/pkg/logger"
 )
 
@@ -13,15 +12,12 @@ func main(){
 
 	cfg, err := config.ReadConfig()
 	if err != nil {
-		slog.Error("Failed to parse configuration")
-		return
+		panic("Failed to parse configuration")
 	}
 
 	logger.InitGlobalLogger(cfg.LogLevel)
 
-	lru := cache.NewLRUCache(cfg.CacheSize, cfg.DefaultCacheTTL) // в Newserver
-
-	srv := server.NewServer(cfg.ServerHostPort, lru)
+	srv := server.NewServer(cfg.ServerHostPort, cfg.CacheSize, cfg.DefaultCacheTTL)
 
 	slog.Info("Starting server", slog.String("address", cfg.ServerHostPort))
 	if err := srv.Start(); err != nil {

@@ -23,11 +23,13 @@ type Server struct {
 
 // NewServer создаёт новый Server, регистрирует все HTTP-эндпоинты.
 // Возвращает ссылку на сконфигурированный Server.
-func NewServer(addr string, cache cache.ILRUCache) *Server {
+func NewServer(addr string, cacheSize int, defaultCacheTTL time.Duration) *Server {
 	r := chi.NewRouter()
 
+	lru := cache.NewLRUCache(cacheSize, defaultCacheTTL)
+
 	s := &Server{
-		cache: cache,
+		cache: lru,
 		httpServer: &http.Server{
 			Addr:              addr,
 			Handler:           r,
