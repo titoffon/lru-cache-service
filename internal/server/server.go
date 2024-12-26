@@ -2,8 +2,13 @@
 package server
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -24,8 +29,10 @@ func NewServer(addr string, cache cache.ILRUCache) *Server {
 	s := &Server{
 		cache: cache,
 		httpServer: &http.Server{
-			Addr:    addr,
-			Handler: r,
+			Addr:    			addr,
+			Handler: 			r,
+			ReadHeaderTimeout:	10 * time.Second, // например
+    		IdleTimeout:   		60 * time.Second,
 		},
 	}
 
@@ -42,12 +49,52 @@ func NewServer(addr string, cache cache.ILRUCache) *Server {
 // Start запускает HTTP-сервер в текущем горутине (блокирует).
 // Возвращает ошибку, если сервер не смог стартовать или завершился с ошибкой.
 func (s *Server) Start() error {
+	//канал для приёма системных сигналов.
+	stop := make(chan os.Signal, 1)
+	//подписываемся на сигналы SIGINT (Ctrl+C) и SIGTERM
+	signal.Notify(stop, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
+
+	// Канал для передачи ошибок, которые могут возникнуть при ListenAndServe.
+	errChan := make(chan error, 1)
+
 	s.httpServer.Handler = s.loggingMiddleware(s.httpServer.Handler)
-	err := s.httpServer.ListenAndServe()
-	if err != nil && err != http.ErrServerClosed {
+	go func() {
+		slog.Info("Server is starting", slog.String("addr", s.httpServer.Addr))
+		if err := s.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			errChan <- err
+		}
+	}()
+
+	select {
+	case sig := <-stop:
+		// Пришёл сигнал (SIGINT или SIGTERM)
+		slog.Info("Received shutdown signal",
+			slog.String("signal", sig.String()),
+		)
+
+		shutdownStart := time.Now()
+
+		// Создаём контекст с таймаутом
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		// Вызываем Shutdown — это говорит серверу не принимать новых запросов
+		// и подождать, пока все активные запросы завершатся или пока не истечёт таймаут.
+		if err := s.httpServer.Shutdown(ctx); err != nil {
+			slog.Error("Graceful shutdown failed", slog.String("error", err.Error()))
+			return err
+		}
+		// Логируем, сколько заняла остановка
+		shutdownElapsed := time.Since(shutdownStart)
+		slog.Info("Server gracefully stopped",
+			slog.Duration("shutdown_time", shutdownElapsed),
+		)
+		return nil
+			
+	case err := <-errChan:
+		// Если сервер упал не по причине Shutdown, возвращаем ошибку
 		return err
 	}
-	return nil
 }
 
 func (s *Server) loggingMiddleware(next http.Handler) http.Handler {

@@ -79,6 +79,7 @@ func (s *Server) handlePost(w http.ResponseWriter, r *http.Request) {
 		slog.Duration("duration", time.Since(start)),
 	)
 
+	//time.Sleep(2*time.Second)
 	w.WriteHeader(http.StatusCreated) // 201
 }
 
@@ -119,7 +120,15 @@ func (s *Server) handleGet(w http.ResponseWriter, r *http.Request) {
 		ExpiresAt: expiresAt.Unix(),
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(resp)
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		slog.Error("Failed to encode JSON response",
+			slog.String("error", err.Error()),
+			slog.String("method", r.Method),
+			slog.String("url", r.URL.Path),
+		)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
 
 	slog.Info("Data retrieved successfully",
 		slog.String("key", key),
@@ -154,7 +163,15 @@ func (s *Server) handleGetAll(w http.ResponseWriter, r *http.Request) {
 		Values: values,
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(resp)
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		slog.Error("Failed to encode JSON response",
+			slog.String("error", err.Error()),
+			slog.String("method", r.Method),
+			slog.String("url", r.URL.Path),
+		)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
 
 	slog.Info("All data retrieved successfully",
 		slog.Int("keys_count", len(keys)),
